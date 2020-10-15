@@ -1,1 +1,5 @@
-backendscreening.exe
+# Remove all binary files
+*.exe
+
+# Remove all .env files
+credentials.env
