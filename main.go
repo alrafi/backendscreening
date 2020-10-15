@@ -29,6 +29,7 @@ func main() {
 
 	r.HandleFunc("/", home).Methods("GET")
 	r.HandleFunc("/api/diaries", controller.GetDiaries).Methods("GET")
+	r.HandleFunc("/api/register", controller.Register).Methods("POST")
 
 	log.Fatal(http.ListenAndServe(":8000", r))
 	fmt.Println("Successfully connected to port 8000")
