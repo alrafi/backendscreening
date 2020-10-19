@@ -28,5 +28,6 @@ type Response struct {
 type ResponseRegister struct {
 	Status  int    `json:"status"`
 	Message string `json:"message"`
-	Data    []User
+	Data    User
+	Token   string `json:"token"`
 }
