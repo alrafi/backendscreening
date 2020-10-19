@@ -75,6 +75,37 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// GetUsers is method to get all users
+func GetUsers(w http.ResponseWriter, r *http.Request) {
+	var user model.User
+	var arrUser []model.User
+	var response model.ResponseUsers
+
+	db := database.Connect()
+	defer db.Close()
+
+	rows, err := db.Query("Select username, fullname, email, birthday from users")
+	if err != nil {
+		log.Print(err)
+	}
+
+	for rows.Next() {
+		if err := rows.Scan(&user.Username, &user.Fullname, &user.Email, &user.Birthday); err != nil {
+			log.Fatal(err.Error())
+
+		} else {
+			arrUser = append(arrUser, user)
+		}
+	}
+
+	response.Status = 200
+	response.Message = "Success"
+	response.Data = arrUser
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 // GetDiaries is method to get all diaries
 func GetDiaries(w http.ResponseWriter, r *http.Request) {
 	var diaries model.Diary
