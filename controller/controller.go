@@ -8,13 +8,14 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/bcrypt"
 )
 
 // Register is a method to register new user
 func Register(w http.ResponseWriter, r *http.Request) {
 	var user model.User
-	var arrUser []model.User
+	// var arrUser []model.User
 	var response model.ResponseRegister
 
 	db := database.Connect()
@@ -36,6 +37,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("Unable to decode the request body.  %v", err)
 	}
 
+	sign := jwt.New(jwt.GetSigningMethod("HS256"))
+	claims := sign.Claims.(jwt.MapClaims)
+	claims["user"] = user.Username
+	token, err := sign.SignedString([]byte("secret"))
+
 	password := &user.Password
 
 	hash, errMes := bcrypt.GenerateFromPassword([]byte(*password), 5)
@@ -55,11 +61,12 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	arrUser = append(arrUser, user)
+	// arrUser = append(arrUser, user)
 
 	response.Status = 200
 	response.Message = "Success Register New User"
-	response.Data = arrUser
+	response.Data = user
+	response.Token = token
 	// response.Data = model.User{Username: username, Fullname: fullname, Email: email, Password: password, Birthday: birthday}
 	log.Print("Insert data to database")
 
