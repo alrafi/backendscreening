@@ -13,34 +13,41 @@ import (
 
 // Register is a method to register new user
 func Register(w http.ResponseWriter, r *http.Request) {
-	// var user model.User
-	// var arrUser []model.User
+	var user model.User
+	var arrUser []model.User
 	var response model.ResponseRegister
 
 	db := database.Connect()
 	defer db.Close()
 
-	err := r.ParseMultipartForm(4096)
+	// err := r.ParseMultipartForm(4096)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// username := r.FormValue("username")
+	// fullname := r.FormValue("fullname")
+	// email := r.FormValue("email")
+	// password := r.FormValue("password")
+	// birthday := r.FormValue("birthday")
+
+	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Unable to decode the request body.  %v", err)
 	}
 
-	username := r.FormValue("username")
-	fullname := r.FormValue("fullname")
-	email := r.FormValue("email")
-	password := r.FormValue("password")
-	birthday := r.FormValue("birthday")
+	password := &user.Password
 
-	hash, errMes := bcrypt.GenerateFromPassword([]byte(password), 5)
+	hash, errMes := bcrypt.GenerateFromPassword([]byte(*password), 5)
 
 	if errMes != nil {
 		response.Message = "Error While Hashing Password, Try Again"
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	password = string(hash)
+	*password = string(hash)
 
-	_, err = db.Exec("INSERT INTO users (username, fullname, email, password, birthday) values ($1,$2,$3,$4,$5)", username, fullname, email, password, birthday)
+	_, err = db.Exec("INSERT INTO users (username, fullname, email, password, birthday) values ($1,$2,$3,$4,$5)", user.Username, user.Fullname, user.Email, *password, user.Birthday)
 
 	if err != nil {
 		log.Print(err)
@@ -48,8 +55,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	arrUser = append(arrUser, user)
+
 	response.Status = 200
 	response.Message = "Success Register New User"
+	response.Data = arrUser
 	// response.Data = model.User{Username: username, Fullname: fullname, Email: email, Password: password, Birthday: birthday}
 	log.Print("Insert data to database")
 
