@@ -28,6 +28,7 @@ func main() {
 	// diaries = append(diaries, Diary{ID: "1", Title: "Day One as Software Engineer Facebook", Content: "I hope I can give full of my skills to this company", Date: currentTime.Format("2006-01-02")})
 
 	r.HandleFunc("/", home).Methods("GET")
+	r.HandleFunc("/api/users", controller.GetUsers).Methods("GET")
 	r.HandleFunc("/api/diaries", controller.GetDiaries).Methods("GET")
 	r.HandleFunc("/api/register", controller.Register).Methods("POST")
 
