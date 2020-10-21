@@ -32,6 +32,14 @@ type ResponseRegister struct {
 	Token   string `json:"token"`
 }
 
+// ResponseLogin is model of response result
+type ResponseLogin struct {
+	Status  int    `json:"status"`
+	Message string `json:"message"`
+	Data    User
+	Token   string `json:"token"`
+}
+
 // ResponseUsers is model of response
 type ResponseUsers struct {
 	Status  int    `json:"status"`
