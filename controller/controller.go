@@ -44,7 +44,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 
 	sign := jwt.New(jwt.GetSigningMethod("HS256"))
 	claims := sign.Claims.(jwt.MapClaims)
-	claims["user"] = user.Username
+	claims["user"] = user.ID
 	token, err := sign.SignedString([]byte("secret"))
 
 	hash, errMes := bcrypt.GenerateFromPassword([]byte(password), 5)
@@ -56,7 +56,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	}
 	password = string(hash)
 
-	_, err = db.Exec("INSERT INTO users (username, fullname, email, password, birthday) values ($1,$2,$3,$4,$5)", user.Username, user.Fullname, user.Email, password, user.Birthday)
+	_, err = db.Exec("INSERT INTO users (user_id, username, fullname, email, password, birthday) values (DEFAULT, $1,$2,$3,$4,$5)", user.Username, user.Fullname, user.Email, password, user.Birthday)
 
 	if err != nil {
 		log.Print(err)
@@ -100,13 +100,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	if user.Username != "" {
 		log.Print("username != nil")
 		data = user.Username
-		row := db.QueryRow("SELECT username, fullname, password, email, birthday FROM users WHERE username=$1", data)
-		err = row.Scan(&user.Username, &user.Fullname, &user.Password, &user.Email, &user.Birthday)
+		row := db.QueryRow("SELECT user_id, username, fullname, password, email, birthday FROM users WHERE username=$1", data)
+		err = row.Scan(&user.ID, &user.Username, &user.Fullname, &user.Password, &user.Email, &user.Birthday)
 	} else if user.Email != "" {
 		log.Print("email != nil")
 		data = user.Email
-		row := db.QueryRow("SELECT username, fullname, password, email, birthday FROM users WHERE email=$1", data)
-		err = row.Scan(&user.Username, &user.Fullname, &user.Password, &user.Email, &user.Birthday)
+		row := db.QueryRow("SELECT user_id, username, fullname, password, email, birthday FROM users WHERE email=$1", data)
+		err = row.Scan(&user.ID, &user.Username, &user.Fullname, &user.Password, &user.Email, &user.Birthday)
 	}
 
 	if err != nil {
@@ -131,7 +131,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 
 	sign := jwt.New(jwt.GetSigningMethod("HS256"))
 	claims := sign.Claims.(jwt.MapClaims)
-	claims["user"] = user.Username
+	claims["user"] = user.ID
 	token, err := sign.SignedString([]byte("secret"))
 
 	response.Status = 200
@@ -152,13 +152,13 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	db := database.Connect()
 	defer db.Close()
 
-	rows, err := db.Query("Select username, fullname, email, birthday from users")
+	rows, err := db.Query("Select user_id, username, fullname, email, birthday from users")
 	if err != nil {
 		log.Print(err)
 	}
 
 	for rows.Next() {
-		if err := rows.Scan(&user.Username, &user.Fullname, &user.Email, &user.Birthday); err != nil {
+		if err := rows.Scan(&user.ID, &user.Username, &user.Fullname, &user.Email, &user.Birthday); err != nil {
 			log.Fatal(err.Error())
 
 		} else {
@@ -183,7 +183,15 @@ func GetDiaries(w http.ResponseWriter, r *http.Request) {
 	db := database.Connect()
 	defer db.Close()
 
-	rows, err := db.Query("Select diary_id,title,content,date from diaries")
+	var header = r.Header.Get("Authorization")
+	// log.Print(header)
+	encode := extractClaims(header)
+	claims := encode.Claims.(jwt.MapClaims)
+	log.Print(claims)
+	selectedUser := claims["user"]
+	log.Print(selectedUser)
+
+	rows, err := db.Query("Select diary_id,title,content,date from diaries WHERE user_id=$1", selectedUser)
 	if err != nil {
 		log.Print(err)
 	}
@@ -234,6 +242,7 @@ func JwtVerify(next http.Handler) http.Handler {
 
 		if token != nil && err == nil {
 			fmt.Println("token verified")
+			// fmt.Println(token)
 			next.ServeHTTP(w, r)
 		} else {
 			fmt.Println("error")
@@ -298,4 +307,21 @@ func VerifyPassword(password string) string {
 		return errorString
 	}
 	return ""
+}
+
+func extractClaims(tokenStr string) *jwt.Token {
+
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		if jwt.GetSigningMethod("HS256") != token.Method {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+
+		return []byte("secret"), nil
+	})
+
+	if token != nil && err == nil {
+		return token
+	} else {
+		return nil
+	}
 }

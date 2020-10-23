@@ -2,6 +2,7 @@ package model
 
 // User is model of user
 type User struct {
+	ID       string `json:"id"`
 	Username string `json:"username"`
 	Fullname string `json:"fullname"`
 	Birthday string `json:"birthday"`
