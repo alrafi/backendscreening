@@ -16,6 +16,7 @@ import (
 
 // Register is a method to register new user
 func Register(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	var user model.User
 	// var arrUser []model.User
 	var response model.ResponseRegister
@@ -36,7 +37,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		// log.Print("err password")
 		response.Status = 400
 		response.Message = errPass
-		w.Header().Set("Content-Type", "application/json")
+
 		json.NewEncoder(w).Encode(response)
 		return
 	}
@@ -72,13 +73,14 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	// response.Data = model.User{Username: username, Fullname: fullname, Email: email, Password: password, Birthday: birthday}
 	log.Print("Insert data to database")
 
-	w.Header().Set("Content-Type", "application/json")
+	// w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 	return
 }
 
 // Login is method to log in
 func Login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
 	var user model.User
 	// var arrUser []model.User
 	var response model.ResponseLogin
@@ -92,26 +94,39 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	plainPass := []byte(user.Password)
-	// plainPass := []byte("halo")
-	// log.Print(plainPass)
 
-	// log.Print(user)
+	var data string
 
-	row := db.QueryRow("SELECT username, fullname, password, email, birthday FROM users WHERE username=$1", user.Username)
-	err = row.Scan(&user.Username, &user.Fullname, &user.Password, &user.Email, &user.Birthday)
+	if user.Username != "" {
+		log.Print("username != nil")
+		data = user.Username
+		row := db.QueryRow("SELECT username, fullname, password, email, birthday FROM users WHERE username=$1", data)
+		err = row.Scan(&user.Username, &user.Fullname, &user.Password, &user.Email, &user.Birthday)
+	} else if user.Email != "" {
+		log.Print("email != nil")
+		data = user.Email
+		row := db.QueryRow("SELECT username, fullname, password, email, birthday FROM users WHERE email=$1", data)
+		err = row.Scan(&user.Username, &user.Fullname, &user.Password, &user.Email, &user.Birthday)
+	}
 
 	if err != nil {
 		log.Print(err)
 		log.Print("ada error")
+		response.Status = 400
+		response.Message = "Error: akun tersebut tidak terdaftar"
+		json.NewEncoder(w).Encode(response)
+		return
 	}
 
-	// log.Print(plainPass)
-	// log.Print(user.Password)
 	hashPass := []byte(user.Password)
 	err = bcrypt.CompareHashAndPassword(hashPass, plainPass)
 	if err != nil {
 		log.Println(err)
 		log.Print("err pass")
+		response.Status = 400
+		response.Message = "Error: username/email dan password tidak cocok"
+		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	sign := jwt.New(jwt.GetSigningMethod("HS256"))
