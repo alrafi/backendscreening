@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
+	"unicode"
 
 	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/bcrypt"
@@ -21,20 +23,22 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	db := database.Connect()
 	defer db.Close()
 
-	// err := r.ParseMultipartForm(4096)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// username := r.FormValue("username")
-	// fullname := r.FormValue("fullname")
-	// email := r.FormValue("email")
-	// password := r.FormValue("password")
-	// birthday := r.FormValue("birthday")
-
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		log.Fatalf("Unable to decode the request body.  %v", err)
+	}
+
+	password := user.Password
+	errPass := VerifyPassword(password)
+
+	if errPass != "" {
+		log.Print(errPass)
+		// log.Print("err password")
+		response.Status = 400
+		response.Message = errPass
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		return
 	}
 
 	sign := jwt.New(jwt.GetSigningMethod("HS256"))
@@ -42,18 +46,16 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	claims["user"] = user.Username
 	token, err := sign.SignedString([]byte("secret"))
 
-	password := &user.Password
-
-	hash, errMes := bcrypt.GenerateFromPassword([]byte(*password), 5)
+	hash, errMes := bcrypt.GenerateFromPassword([]byte(password), 5)
 
 	if errMes != nil {
 		response.Message = "Error While Hashing Password, Try Again"
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	*password = string(hash)
+	password = string(hash)
 
-	_, err = db.Exec("INSERT INTO users (username, fullname, email, password, birthday) values ($1,$2,$3,$4,$5)", user.Username, user.Fullname, user.Email, *password, user.Birthday)
+	_, err = db.Exec("INSERT INTO users (username, fullname, email, password, birthday) values ($1,$2,$3,$4,$5)", user.Username, user.Fullname, user.Email, password, user.Birthday)
 
 	if err != nil {
 		log.Print(err)
@@ -223,4 +225,62 @@ func JwtVerify(next http.Handler) http.Handler {
 			json.NewEncoder(w).Encode("Error token authentication")
 		}
 	})
+}
+
+// VerifyPassword is
+func VerifyPassword(password string) string {
+	var uppercasePresent bool
+	var lowercasePresent bool
+	var numberPresent bool
+	var specialCharPresent bool
+	const minPassLength = 6
+	const maxPassLength = 32
+	var passLen int
+	var errorString string
+
+	for _, ch := range password {
+		switch {
+		case unicode.IsNumber(ch):
+			numberPresent = true
+			passLen++
+		case unicode.IsUpper(ch):
+			uppercasePresent = true
+			passLen++
+		case unicode.IsLower(ch):
+			lowercasePresent = true
+			passLen++
+		case unicode.IsPunct(ch) || unicode.IsSymbol(ch):
+			specialCharPresent = true
+			passLen++
+		case ch == ' ':
+			passLen++
+		}
+	}
+	appendError := func(err string) {
+		if len(strings.TrimSpace(errorString)) != 0 {
+			errorString += ", " + err
+		} else {
+			errorString = err
+		}
+	}
+	if !lowercasePresent {
+		appendError("lowercase letter missing")
+	}
+	if !uppercasePresent {
+		appendError("uppercase letter missing")
+	}
+	if !numberPresent {
+		appendError("atleast one numeric character required")
+	}
+	if !specialCharPresent {
+		appendError("special character missing")
+	}
+	if !(minPassLength <= passLen && passLen <= maxPassLength) {
+		appendError(fmt.Sprintf("password length must be between %d to %d characters long", minPassLength, maxPassLength))
+	}
+
+	if len(errorString) != 0 {
+		return errorString
+	}
+	return ""
 }
