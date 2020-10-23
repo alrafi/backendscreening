@@ -174,7 +174,7 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// GetDiaries is method to get all diaries
+// GetDiaries is method to get all diaries from a user
 func GetDiaries(w http.ResponseWriter, r *http.Request) {
 	var diaries model.Diary
 	var arrDiary []model.Diary
@@ -209,6 +209,43 @@ func GetDiaries(w http.ResponseWriter, r *http.Request) {
 
 	response.Status = 200
 	response.Message = "Success"
+	response.Data = arrDiary
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// CreateDiaries is method to create a diary
+func CreateDiaries(w http.ResponseWriter, r *http.Request) {
+	var diary model.Diary
+	var arrDiary []model.Diary
+	var response model.Response
+
+	db := database.Connect()
+	defer db.Close()
+
+	var header = r.Header.Get("Authorization")
+	err := json.NewDecoder(r.Body).Decode(&diary)
+	// log.Print(header)
+	encode := extractClaims(header)
+	claims := encode.Claims.(jwt.MapClaims)
+	log.Print(claims)
+	selectedUser := claims["user"]
+	log.Print(selectedUser)
+
+	_, err = db.Exec("INSERT INTO diaries (diary_id, user_id, title, content, date) VALUES (DEFAULT, $1, $2, $3, $4)", selectedUser, diary.Title, diary.Content, diary.Date)
+
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	fmt.Println("Successfully connected to database!")
+
+	arrDiary = append(arrDiary, diary)
+
+	response.Status = 200
+	response.Message = "Success add diary"
 	response.Data = arrDiary
 
 	w.Header().Set("Content-Type", "application/json")

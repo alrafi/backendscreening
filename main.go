@@ -35,6 +35,7 @@ func main() {
 	s := r.PathPrefix("/auth").Subrouter()
 	s.Use(controller.JwtVerify)
 	s.HandleFunc("/api/users", controller.GetUsers).Methods("GET")
+	s.HandleFunc("/api/diaries", controller.CreateDiaries).Methods("POST")
 	s.HandleFunc("/api/diaries", controller.GetDiaries).Methods("GET")
 
 	log.Fatal(http.ListenAndServe(":8000", r))

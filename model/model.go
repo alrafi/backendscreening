@@ -15,7 +15,7 @@ type Diary struct {
 	ID      string `json:"id"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
-	Date    string `json:"time"`
+	Date    string `json:"date"`
 }
 
 // Response is model of response
